@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SpamCatch">
+    <title>SpamCatch Email Spam Detection</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-wrapper">
+        <header class="header">
+            <div class="container">
+                <a href="/" class="logo">
+                    <span class="logo-icon">🛡️</span>
+                    <span>SpamCatch</span>
+                    <span class="logo-badge">AI</span>
+                </a>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="container">
+                <div class="input-section">
+                    <h1 class="input-title">Paste your full email below</h1>
+                    <p class="input-subtitle">AI-powered spam detection with explainable results</p>
+
+                    {% if error %}
+                    <div class="error-message">{{ error }}</div>
+                    {% endif %}
+
+                    <form id="spamForm" action="/check" method="POST">
+                        <div class="form-group">
+                            <label class="form-label" for="subject">Subject</label>
+                            <input type="text" class="form-input" id="subject" name="subject"
+                                   placeholder="Enter email subject line..." autocomplete="off"
+                                   oninput="updateCharCount()">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="body">Body</label>
+                            <textarea class="form-input" id="body" name="body"
+                                      placeholder="Paste the email body here..." rows="8"
+                                      oninput="updateCharCount()"></textarea>
+                        </div>
+
+                        <div id="charCounter" style="text-align: right; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">
+                            0 / 10,000 characters
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            🔍 Check for Spam
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <div class="container">
+                <div class="warning-panel">
+                    <div class="warning-title">⚠️ Privacy Notice</div>
+                    <div class="warning-text">
+                        <ul>
+                            <li>No data is stored on our servers</li>
+                            <li>API keys are not saved anywhere</li>
+                            <li>All processing is temporary and in-memory</li>
+                        </ul>
+                    </div>
+                </div>
+                <p class="footer-text">SpamCatch Spam Detection</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Analyzing email…</div>
+    </div>
+
+    <script>
+        const MAX_LENGTH = 10000;
+
+        function updateCharCount() {
+            const subject = document.getElementById('subject').value.length;
+            const body = document.getElementById('body').value.length;
+            const total = subject + body;
+            const counter = document.getElementById('charCounter');
+            counter.textContent = `${total.toLocaleString()} / 10,000 characters`;
+
+            if (total > MAX_LENGTH) {
+                counter.style.color = 'var(--spam-color)';
+                counter.textContent += ' ⚠️ Input will be truncated';
+            } else if (total > MAX_LENGTH * 0.9) {
+                counter.style.color = 'var(--warning-color)';
+            } else {
+                counter.style.color = 'var(--text-muted)';
+            }
+        }
+
+        document.getElementById('spamForm').addEventListener('submit', function(e) {
+            const subject = document.getElementById('subject').value.trim();
+            const body = document.getElementById('body').value.trim();
+
+            if (!subject && !body) {
+                e.preventDefault();
+                alert('Please enter at least a subject or body.');
+                return;
+            }
+
+            document.getElementById('loadingOverlay').classList.add('active');
+            document.getElementById('submitBtn').disabled = true;
+        });
+    </script>
+</body>
+</html>

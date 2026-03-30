@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SpamCatch spam analysis results">
+    <title>SpamCatch Analysis Result</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-wrapper">
+        <header class="header">
+            <div class="container">
+                <a href="/" class="logo">
+                    <span class="logo-icon">🛡️</span>
+                    <span>SpamCatch</span>
+                    <span class="logo-badge">AI</span>
+                </a>
+            </div>
+        </header>
+
+        <main class="main-content result-view">
+            <div class="container">
+
+                <!-- 1. RESULT CARD -->
+                <div class="result-card animate-in {{ 'spam' if label == 'SPAM' else 'safe' }}">
+                    <div class="result-badge {{ 'spam' if label == 'SPAM' else 'safe' }}">
+                        {% if label == 'SPAM' %}⛔{% else %}✅{% endif %}
+                        {{ label }}
+                    </div>
+                    <div class="confidence-score">{{ confidence }}%</div>
+                    <div class="confidence-label">Confidence Score</div>
+                </div>
+
+                {% if uncertain %}
+                <!-- UNCERTAIN PREDICTION WARNING -->
+                <div class="panel animate-in" style="border-color: var(--warning-color); background: var(--warning-bg);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 1.3rem;">⚠️</span>
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.95rem; color: var(--warning-color); margin-bottom: 2px;">
+                                Uncertain Prediction
+                            </div>
+                            <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                                The model is not highly confident about this classification.
+                                The confidence score is between 45% and 55%, which means the email
+                                has characteristics of both spam and legitimate messages. Use your own judgement.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if truncated %}
+                <!-- TRUNCATION NOTICE -->
+                <div class="panel animate-in" style="border-color: var(--border-light); padding: 14px 20px;">
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-secondary);">
+                        <span>ℹ️</span>
+                        <span>Input was truncated to 10,000 characters for processing. Results are based on the truncated text.</span>
+                    </div>
+                </div>
+                {% endif %}
+                <div class="panel animate-in">
+                    <div class="panel-header">
+                        <span class="panel-icon">🔍</span>
+                        <span class="panel-title">Explanation</span>
+                    </div>
+
+                    <div class="highlighted-text">
+                        {% if highlighted_subject %}
+                        <div style="margin-bottom: 8px;">
+                            <strong>Subject:</strong> {{ highlighted_subject | safe }}
+                        </div>
+                        {% endif %}
+                        <div>
+                            <strong>Body:</strong><br>{{ highlighted_body | safe }}
+                        </div>
+                    </div>
+
+                    {% if top_keywords %}
+                    <div class="keywords-section">
+                        <div class="keywords-title">Top Spam-Contributing Words</div>
+                        <div class="keyword-list">
+                            {% for word, score in top_keywords %}
+                            <span class="keyword-tag">
+                                <span class="keyword-word">{{ word }}</span>
+                                <span class="keyword-score">({{ score }})</span>
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if indicators %}
+                    <div style="margin-top: 18px;">
+                        {% for ind in indicators %}
+                        <div class="indicator-item">
+                            <span class="indicator-icon">
+                                {% if ind.type == 'Suspicious Keywords' %}🔤
+                                {% elif ind.type == 'Suspicious URLs' %}🔗
+                                {% else %}📐{% endif %}
+                            </span>
+                            <div>
+                                <div class="indicator-type">{{ ind.type }}</div>
+                                <div class="indicator-detail">{{ ind.detail }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- 3. URL ANALYSIS PANEL -->
+                {% if url_analyses %}
+                <div class="panel animate-in">
+                    <div class="panel-header">
+                        <span class="panel-icon">🌐</span>
+                        <span class="panel-title">URL Analysis</span>
+                    </div>
+
+                    {% for url_info in url_analyses %}
+                    <div class="url-item">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span class="url-domain">{{ url_info.domain }}</span>
+                            <span class="risk-badge {{ url_info.risk | lower }}">{{ url_info.risk }}</span>
+                        </div>
+                        <div class="url-full">{{ url_info.url }}</div>
+                        <ul class="url-reasons">
+                            {% for reason in url_info.reasons %}
+                            <li>{{ reason }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endfor %}
+
+                    <!-- Domain Reputation Check -->
+                    <div class="domain-check-section">
+                        <button class="btn btn-secondary btn-small" id="domainCheckBtn" onclick="toggleApiKey()">
+                            🔎 Check Domain Reputation
+                        </button>
+
+                        <div class="api-key-section" id="apiKeySection">
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 6px;">
+                                Enter your VirusTotal API key to check domain reputation:
+                            </div>
+                            <div class="api-key-row">
+                                <input type="password" class="api-key-input" id="apiKeyInput"
+                                       placeholder="VirusTotal API Key" autocomplete="off">
+                                <button class="btn btn-secondary btn-small" onclick="checkDomain()">Check</button>
+                            </div>
+                            <div id="domainResult"></div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 4. RISK INDICATORS PANEL -->
+                <div class="panel animate-in">
+                    <div class="panel-header">
+                        <span class="panel-icon">⚠️</span>
+                        <span class="panel-title">Risk Indicators</span>
+                    </div>
+
+                    <div class="risk-grid">
+                        <div class="risk-card">
+                            <div class="risk-card-label">Word Risk</div>
+                            <span class="risk-badge {{ word_risk | lower }}">{{ word_risk }}</span>
+                        </div>
+                        <div class="risk-card">
+                            <div class="risk-card-label">URL Risk</div>
+                            <span class="risk-badge {{ url_risk | lower }}">{{ url_risk }}</span>
+                        </div>
+                    </div>
+
+                    {% if structure_features %}
+                    <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-color);">
+                        <div class="keywords-title">Structure Signals</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <div class="analytics-item">
+                                <div class="analytics-value" style="font-size: 1.1rem;">{{ structure_features.exclamation_count }}</div>
+                                <div class="analytics-label">Exclamation Marks</div>
+                            </div>
+                            <div class="analytics-item">
+                                <div class="analytics-value" style="font-size: 1.1rem;">{{ (structure_features.uppercase_ratio * 100) | round(1) }}%</div>
+                                <div class="analytics-label">Uppercase Ratio</div>
+                            </div>
+                            <div class="analytics-item">
+                                <div class="analytics-value" style="font-size: 1.1rem;">{{ structure_features.all_caps_words }}</div>
+                                <div class="analytics-label">ALL CAPS Words</div>
+                            </div>
+                            <div class="analytics-item">
+                                <div class="analytics-value" style="font-size: 1.1rem;">{{ structure_features.email_length }}</div>
+                                <div class="analytics-label">Email Length</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if decision_factors %}
+                    <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-color);">
+                        <div class="keywords-title">Hybrid Decision Adjustments</div>
+                        {% for factor in decision_factors %}
+                        <div style="font-size: 0.82rem; color: var(--text-secondary); padding: 3px 0;">
+                            → {{ factor }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- 5. ANALYTICS PANEL -->
+                <div class="panel animate-in">
+                    <div class="panel-header">
+                        <span class="panel-icon">📊</span>
+                        <span class="panel-title">Analytics</span>
+                    </div>
+
+                    <div class="analytics-grid">
+                        <div class="analytics-item">
+                            <div class="analytics-value">{{ analytics.total_words }}</div>
+                            <div class="analytics-label">Total Words</div>
+                        </div>
+                        <div class="analytics-item">
+                            <div class="analytics-value">{{ analytics.spam_word_count }}</div>
+                            <div class="analytics-label">Spam Words</div>
+                        </div>
+                        <div class="analytics-item">
+                            <div class="analytics-value">{{ analytics.url_count }}</div>
+                            <div class="analytics-label">URLs Found</div>
+                        </div>
+                    </div>
+
+                    {% if analytics.word_contribution > 0 or analytics.url_contribution > 0 %}
+                    <div class="contribution-section">
+                        <div class="contribution-title">Spam Contribution Breakdown</div>
+                        <div class="contribution-bar">
+                            <div class="contribution-segment words"
+                                 style="width: {{ analytics.word_contribution }}%"></div>
+                            <div class="contribution-segment urls"
+                                 style="width: {{ analytics.url_contribution }}%"></div>
+                        </div>
+                        <div class="contribution-legend">
+                            <div class="legend-item">
+                                <span class="legend-dot words"></span>
+                                Words {{ analytics.word_contribution }}%
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-dot urls"></span>
+                                URLs {{ analytics.url_contribution }}%
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- 6. WARNING PANEL -->
+                <div class="warning-panel animate-in">
+                    <div class="warning-title">⚠️ Privacy Notice</div>
+                    <div class="warning-text">
+                        <ul>
+                            <li>No data is stored on our servers</li>
+                            <li>API keys are not saved anywhere</li>
+                            <li>All processing is temporary and in-memory</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Back Button -->
+                <div class="back-section animate-in">
+                    <a href="/" class="btn btn-secondary">← Check Another Email</a>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <div class="container">
+                <p class="footer-text">SpamCatch Spam Detection</p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        /* Toggle API key input */
+        function toggleApiKey() {
+            const section = document.getElementById('apiKeySection');
+            section.classList.toggle('visible');
+        }
+
+        /* Check domain reputation via API */
+        function checkDomain() {
+            const apiKey = document.getElementById('apiKeyInput').value.trim();
+            const resultDiv = document.getElementById('domainResult');
+
+            if (!apiKey) {
+                resultDiv.innerHTML = '<div class="domain-result error">Please enter your VirusTotal API key.</div>';
+                return;
+            }
+
+            // Get the first URL from the analysis
+            const firstUrl = '{{ url_analyses[0].url if url_analyses else "" }}';
+
+            if (!firstUrl) {
+                resultDiv.innerHTML = '<div class="domain-result error">No URL available to check.</div>';
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="domain-result">Checking domain reputation…</div>';
+
+            fetch('/api/domain-check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: firstUrl, api_key: apiKey })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const r = data.result;
+                    resultDiv.innerHTML = `
+                        <div class="domain-result success">
+                            <strong>Domain:</strong> ${data.domain}<br>
+                            <div class="domain-stats">
+                                <div class="domain-stat">
+                                    <span class="domain-stat-label">Harmless</span>
+                                    <span class="domain-stat-value" style="color: var(--safe-color)">${r.harmless}</span>
+                                </div>
+                                <div class="domain-stat">
+                                    <span class="domain-stat-label">Malicious</span>
+                                    <span class="domain-stat-value" style="color: var(--spam-color)">${r.malicious}</span>
+                                </div>
+                                <div class="domain-stat">
+                                    <span class="domain-stat-label">Suspicious</span>
+                                    <span class="domain-stat-value" style="color: var(--warning-color)">${r.suspicious}</span>
+                                </div>
+                                <div class="domain-stat">
+                                    <span class="domain-stat-label">Undetected</span>
+                                    <span class="domain-stat-value">${r.undetected}</span>
+                                </div>
+                            </div>
+                        </div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="domain-result error">${data.error}</div>`;
+                }
+            })
+            .catch(err => {
+                resultDiv.innerHTML = '<div class="domain-result error">Network error. Please try again.</div>';
+            });
+        }
+    </script>
+</body>
+</html>
